@@ -1,11 +1,18 @@
-import React from 'react'
+import React from "react";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import DashboardScreen from "../DashboardScreen";
 
-const AppNavigator = () => {
+
+export type RootStackParamList = {
+  Dashboard: undefined;
+};
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
+
+export default function AppNavigator() {
   return (
-    <div>
-      
-    </div>
-  )
+    <Stack.Navigator>
+      <Stack.Screen name="Dashboard" component={DashboardScreen} />
+    </Stack.Navigator>
+  );
 }
-
-export default AppNavigator
