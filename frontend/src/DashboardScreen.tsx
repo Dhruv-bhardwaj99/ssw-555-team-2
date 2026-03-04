@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { API_BASE_URL } from "./config/api";
 
 type CardProps = {
   title: string;
@@ -56,6 +57,19 @@ function Card({
 }
 
 export default function DashboardScreen() {
+  const [apiStatus, setApiStatus] = useState("Checking backend...");
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/health`);
+        const json = await res.json();
+        setApiStatus(json.ok ? "Backend connected ✅" : "Backend responded ⚠️");
+      } catch {
+        setApiStatus("Backend not reachable ❌");
+      }
+    })();
+  }, []);
+  
   return (
     <ScrollView
       style={styles.container}
@@ -64,6 +78,9 @@ export default function DashboardScreen() {
     >
       <Text style={styles.header}>Dashboard</Text>
       <Text style={styles.subheader}>Health overview at a glance</Text>
+      <Text style={{ color: "#0B0F19", opacity: 0.7, marginBottom: 12 }}>
+        {apiStatus}
+      </Text>
 
       {/* Top summary cards (your original ones) */}
       <View style={styles.grid}>
@@ -129,11 +146,19 @@ export default function DashboardScreen() {
 
       {/* Buttons with feedback (TouchableOpacity) */}
       <View style={styles.actions}>
-        <TouchableOpacity activeOpacity={0.85} style={styles.primaryBtn} onPress={() => {}}>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          style={styles.primaryBtn}
+          onPress={() => {}}
+        >
           <Text style={styles.primaryBtnText}>Message Doctor</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity activeOpacity={0.85} style={styles.secondaryBtn} onPress={() => {}}>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          style={styles.secondaryBtn}
+          onPress={() => {}}
+        >
           <Text style={styles.secondaryBtnText}>Schedule Appointment</Text>
         </TouchableOpacity>
       </View>
