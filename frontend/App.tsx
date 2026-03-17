@@ -1,12 +1,6 @@
 import React from "react";
-import { NavigationContainer } from "@react-navigation/native";
-import AppNavigator from "./src/navigation/AppNavigator";
-import "expo-router/entry";
 
+// Simply export null here - expo-router handles everything via app/_layout.tsx
 export default function App() {
-  return (
-    <NavigationContainer>
-      <AppNavigator />
-    </NavigationContainer>
-  );
+  return null;
 }

@@ -3,11 +3,13 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { API_BASE_URL } from "./config/api";
+import { API_BASE_URL } from "@/src/config/api";
+import RefreshableScroll from "@/components/RefreshableScroll";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+
 
 type CardProps = {
   title: string;
@@ -58,23 +60,29 @@ function Card({
 
 export default function DashboardScreen() {
   const [apiStatus, setApiStatus] = useState("Checking backend...");
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/health`);
-        const json = await res.json();
-        setApiStatus(json.ok ? "Backend connected ✅" : "Backend responded ⚠️");
-      } catch {
-        setApiStatus("Backend not reachable ❌");
-      }
-    })();
-  }, []);
+  const fetchStatus = async () => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/`); // or /health if you added it
+    const json = await res.json();
+    setApiStatus(json?.message ? "Backend connected ✅" : "Backend responded ⚠️");
+  } catch {
+    setApiStatus("Backend not reachable ❌");
+  }
+};
+
+useEffect(() => {
+  fetchStatus();
+}, []);
+
+const { refreshing, onRefresh } = usePullToRefresh(fetchStatus);
   
   return (
-    <ScrollView
+    <RefreshableScroll
       style={styles.container}
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
+      refreshing={refreshing}
+      onRefresh={onRefresh}
     >
       <Text style={styles.header}>Dashboard</Text>
       <Text style={styles.subheader}>Health overview at a glance</Text>
@@ -164,7 +172,7 @@ export default function DashboardScreen() {
       </View>
 
       <View style={{ height: 24 }} />
-    </ScrollView>
+    </RefreshableScroll>
   );
 }
 
