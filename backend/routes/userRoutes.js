@@ -7,12 +7,12 @@ const router = express.Router();
 // POST /api/users  -> create new user
 router.post("/", async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { firstName, lastName, email, password, role } = req.body;
 
-    if (!name || !email || !password) {
+    if (!firstName || !lastName || !email || !password) {
       return res
         .status(400)
-        .json({ message: "name, email, and password are required" });
+        .json({ message: "firstName, lastName, email, and password are required" });
     }
 
     const normalizedEmail = email.toLowerCase().trim();
@@ -22,7 +22,7 @@ router.post("/", async (req, res) => {
       return res.status(409).json({ message: "User already exists" });
     }
 
-    const user = await User.create({ name, email: normalizedEmail, password, role });
+    const user = await User.create({ firstName, lastName, email: normalizedEmail, password, role });
 
     const userObj = user.toObject();
     delete userObj.password;
