@@ -1,11 +1,6 @@
-import React from 'react'
+import React from "react";
 
-const App = () => {
-  return (
-    <div>
-      
-    </div>
-  )
+// Simply export null here - expo-router handles everything via app/_layout.tsx
+export default function App() {
+  return null;
 }
-
-export default App
