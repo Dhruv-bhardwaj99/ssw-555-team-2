@@ -1,8 +1,8 @@
 import { Tabs } from "expo-router";
 import React from "react";
 
-import { HapticTab } from "@/components/haptic-tab";
-import { IconSymbol } from "@/components/ui/icon-symbol";
+import { HapticTab } from "@/components/haptic-tab";//this
+import { IconSymbol } from "@/components/ui/icon-symbol";//this
 import { Ionicons } from "@expo/vector-icons";
 
 export default function TabLayout() {
@@ -10,11 +10,11 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarButton: HapticTab,
+        tabBarButton: HapticTab,//this
         tabBarStyle: {
           backgroundColor: "#FFFFFF",
-          borderTopColor: "#E6EAF2",
-          borderTopWidth: 1,
+          borderTopColor: "#E6EAF2",//this
+          borderTopWidth: 1,//this
         },
         tabBarActiveTintColor: "#1D4ED8",
         tabBarInactiveTintColor: "rgba(11, 15, 25, 0.6)",
@@ -25,7 +25,8 @@ export default function TabLayout() {
         options={{
           title: "Dashboard",
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="house.fill" color={color} />
+            <IconSymbol size={28} name="house.fill" color={color} />//this
+            //<Ionicons name="home" size={24} color={color} />  //added now to test
           ),
         }}
       />
@@ -34,7 +35,17 @@ export default function TabLayout() {
         options={{
           title: "Profile",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person" size={size ?? 24} color={color} />
+            <Ionicons name="person" size={24} color={color} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="messages"
+        options={{
+          title: "messages",
+          tabBarIcon: ({ color, size}) => (
+            <Ionicons name="chatbubble" size={24} color={color} />
           ),
         }}
       />
