@@ -42,41 +42,56 @@ export default function MessageComposer() {
     }
   };
 
-  const sendMessage = async () => {
-    if (!subject.trim() || !body.trim()) {
-      Alert.alert("Error", "Please enter subject and message");
-      return;
+const sendMessage = async () => {
+  const badWords = ["badword1", "badword2", "stupid"];
+
+  if (!subject.trim() || !body.trim()) {
+    Alert.alert("Error", "Please enter subject and message");
+    return;
+  }
+
+  if (body.length > 5000) {
+    Alert.alert("Error", "Message should be less than 5000 characters");
+    return;
+  }
+
+  const lowerBody = body.toLowerCase();
+  const hasBadWord = badWords.some((word) => lowerBody.includes(word));
+
+  if (hasBadWord) {
+    Alert.alert("Error", "Message contains inappropriate words");
+    return;
+  }
+
+  try {
+    const response = await fetch("http://localhost:5001/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        patient_id: "65f111111111111111111111",
+        doctor_id: "65f222222222222222222222",
+        subject,
+        body,
+        encrypted: false,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      Alert.alert("Success", "Message sent successfully");
+      setSubject("");
+      setBody("");
+      setAttachmentName("");
+    } else {
+      Alert.alert("Error", data.message || "Could not send message");
     }
-
-    try {
-      const response = await fetch("http://localhost:5001/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          patient_id: "65f111111111111111111111",
-          doctor_id: "65f222222222222222222222",
-          subject,
-          body,
-          encrypted: false,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        Alert.alert("Success", "Message sent successfully");
-        setSubject("");
-        setBody("");
-        setAttachmentName("");
-      } else {
-        Alert.alert("Error", data.message || "Could not send message");
-      }
-    } catch (error) {
-      Alert.alert("Error", "Server connection failed");
-    }
-  };
+  } catch (error) {
+    Alert.alert("Error", "Server connection failed");
+  }
+};
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
