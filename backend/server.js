@@ -16,12 +16,7 @@ connectDB();
 // Routes
 app.use("/api/users", userRoutes);
 app.use("/messages", messageRoutes);
-app.use("/api/appointments", appointmentRoutes);
-
-// Test route
-app.get("/", (req, res) => {
-  res.json({ message: "API is running" });
-});
+app.use("/appointments", appointmentRoutes);
 
 // Health check endpoint
 app.get("/health", (req, res) => {
