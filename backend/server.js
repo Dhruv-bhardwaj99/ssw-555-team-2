@@ -3,6 +3,7 @@ const express = require("express");
 const connectDB = require("./config/db");
 const userRoutes = require("./routes/userRoutes");
 const messageRoutes = require("./routes/messageRoutes");
+const appointmentRoutes = require("./routes/appointmentRoutes");
 
 const app = express();
 
@@ -15,6 +16,7 @@ connectDB();
 // Routes
 app.use("/api/users", userRoutes);
 app.use("/messages", messageRoutes);
+app.use("/api/appointments", appointmentRoutes);
 
 // Test route
 app.get("/", (req, res) => {
