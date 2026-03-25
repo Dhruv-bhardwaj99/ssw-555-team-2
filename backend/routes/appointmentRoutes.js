@@ -15,7 +15,7 @@ router.put("/:id/cancel", cancelAppointment);
 const { createCalendarEvent } = require("../utils/googleCalendar");
 
 // POST /api/appointments
-router.post("/", async (req, res) => {
+router.post("/calendar-sync", async (req, res) => {
   try {
     const { title, description, startTime, endTime } = req.body;
 
