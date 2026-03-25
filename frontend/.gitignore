@@ -44,4 +44,4 @@ app-example
 
 # env files
 .env
-.env.*
+.env.*.DS_Store
