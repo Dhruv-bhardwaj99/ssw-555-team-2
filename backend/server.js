@@ -2,6 +2,7 @@
 const express = require("express");
 const connectDB = require("./config/db");
 const userRoutes = require("./routes/userRoutes");
+const appointmentRoutes = require("./routes/appointmentRoutes")
 require("dotenv").config();
 
 const app = express();
@@ -12,11 +13,8 @@ app.use(express.json());
 // Connect to MongoDB
 connectDB();
 app.use("/api/users", userRoutes);
+app.use("/appointments", appointmentRoutes);
 
-// Simple test route
-app.get("/", (req, res) => {
-  res.json({ message: "API is running" });
-});
 
 // Health check endpoint
 app.get("/health", (req, res) => {
