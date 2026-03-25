@@ -1,9 +1,21 @@
 const express = require("express");
 const router = express.Router();
+
+const {
+    getDoctorAvailability,
+    createAppointment,
+    cancelAppointment,
+    updateAvailability
+} = require("../controllers/appointmentController");
+
+router.post("/availability", updateAvailability);
+router.get("/doctors/:id/availability", getDoctorAvailability)
+router.post("/", createAppointment);
+router.put("/:id/cancel", cancelAppointment);
 const { createCalendarEvent } = require("../utils/googleCalendar");
 
 // POST /api/appointments
-router.post("/", async (req, res) => {
+router.post("/calendar-sync", async (req, res) => {
   try {
     const { title, description, startTime, endTime } = req.body;
 

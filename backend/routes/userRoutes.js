@@ -111,4 +111,18 @@ router.get("/", async (req, res) => {
   }
 });
 
+//GET all the doctors
+router.get("/providers", async (req, res) => {
+  try {
+    const providers = await User.find({ role: "provider" }).select("-password");
+
+    res.status(200).json(providers);
+  } catch (error) {
+    console.error("Error fetching providers:", error.message);
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+});
+
 module.exports = router;
