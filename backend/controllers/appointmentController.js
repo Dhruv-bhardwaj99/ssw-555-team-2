@@ -1,7 +1,7 @@
 const Appointment = require("../models/appointment");
 const User = require("../models/user");
 const Availability = require("../models/availability");
-const mongoose = require("mongoose");
+const { createCalendarEvent } = require("../utils/googleCalendar");
 
 const generateSlots = (startTime, endTime) => {
   const slots = [];
@@ -47,6 +47,14 @@ const getDoctorAvailability = async (req, res) => {
     }
     const dayConfig = schedule.workingHours.find((h) => h.day === dayName);
 
+    const doctor = await User.findById(doctorId);
+
+    if (!doctor || doctor.role !== "provider") {
+      return res.status(404).json({
+        message: "Doctor not found",
+      });
+    }
+
     if (!dayConfig || !dayConfig.isAvailable) {
       return res.status(200).json({
         doctor: {
@@ -70,14 +78,6 @@ const getDoctorAvailability = async (req, res) => {
 
     const endOfDay = new Date(searchDate);
     endOfDay.setHours(23, 59, 59, 999);
-
-    const doctor = await User.findById(doctorId);
-
-    if (!doctor || doctor.role !== "provider") {
-      return res.status(404).json({
-        message: "Doctor not found",
-      });
-    }
 
     const existingAppointments = await Appointment.find({
       doctor_id: doctorId,
@@ -236,8 +236,30 @@ const createAppointment = async (req, res) => {
 
     const savedAppointment = await appointment.save();
 
+    // Sync to Google Calendar — non-blocking, failure won't affect the booking
+    try {
+      const [hour, minutePart] = time.split(":");
+      const [min, period] = minutePart.split(" ");
+      let startHour = parseInt(hour);
+      if (period === "PM" && startHour !== 12) startHour += 12;
+      if (period === "AM" && startHour === 12) startHour = 0;
+
+      const startISO = `${date}T${String(startHour).padStart(2, "0")}:${min}:00`;
+      const endHour = (startHour + 1) % 24;
+      const endISO = `${date}T${String(endHour).padStart(2, "0")}:${min}:00`;
+
+      await createCalendarEvent({
+        summary: `Appointment: ${patient.firstName} ${patient.lastName} with Dr. ${doctor.lastName}`,
+        description: notes || "",
+        start: startISO,
+        end: endISO,
+      });
+    } catch (calendarError) {
+      console.error("Google Calendar sync failed:", calendarError.message);
+    }
+
     res.status(201).json({
-      message: "Appointment schedules successfully",
+      message: "Appointment scheduled successfully",
       appointment: savedAppointment,
     });
   } catch (error) {
@@ -284,9 +306,75 @@ const cancelAppointment = async (req, res) => {
   }
 };
 
+//get appointments patients
+const getPatientAppointments = async (req, res) => {
+    try {
+        const patientId = req.params.id;
+        const patient = await User.findById(patientId);
+        if(!patient || patient.role !== "patient"){
+            return res.status(404).json({
+                message: "Patient not found"
+            });
+        }
+        const appointments = await Appointment.find({
+            patient_id: patientId
+        }).populate("doctor_id", "firstName lastName email role").sort({date: 1, time: 1});
+
+        res.status(200).json({
+            patient: {
+                id: patient.id,
+                firstName: patient.firstName,
+                lastName: patient.lastName,
+                role: patient.role
+            },
+            appointments,
+        })
+    } catch (error) {
+        console.error("Error fetching appointments:", error.message);
+        res.status(500).json({
+            message: "Server error"
+        })
+    }
+}
+
+//get appointments for providers by id
+const getProviderAppointments = async(req, res) => {
+    try {
+        const providerId = req.params.id;
+
+        const provider = await User.findById(providerId);
+        if(!provider || provider.role !== "provider"){
+            return res.status(404).json({
+                message: "Provider not found",
+            });
+        }
+
+        const appointments = await Appointment.find({
+            doctor_id: providerId
+        }).populate("patient_id", "firstName lastName email role").sort({date: 1, time: 1});
+
+        res.status(200).json({
+            provider: {
+                id: provider._id,
+                firstName: provider.firstName,
+                lastName: provider.lastName,
+                role: provider.role
+            },
+            appointments
+        });
+    } catch (error) {
+        console.error("Error fetching provider appointments:", error.message);
+        res.status(500).json({
+            message: "Server Error"
+        })
+    }
+}
+
 module.exports = {
   getDoctorAvailability,
   createAppointment,
   cancelAppointment,
   updateAvailability,
+  getPatientAppointments,
+  getProviderAppointments
 };
