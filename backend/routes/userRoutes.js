@@ -104,7 +104,7 @@ router.get("/", async (req, res) => {
       return userObj;
     });
     
-    res.json(users);
+    res.json(decryptedUsers);
   } catch (err) {
     console.error("Error fetching users:", err.message);
     res.status(500).json({ message: "Server error" });

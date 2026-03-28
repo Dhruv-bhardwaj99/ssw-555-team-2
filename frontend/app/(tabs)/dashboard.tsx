@@ -9,6 +9,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { API_BASE_URL } from "@/src/config/api";
 import RefreshableScroll from "@/components/RefreshableScroll";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import { router } from "expo-router"
 
 
 type CardProps = {
@@ -167,7 +168,7 @@ const { refreshing, onRefresh } = usePullToRefresh(fetchStatus);
           style={styles.secondaryBtn}
           onPress={() => {}}
         >
-          <Text style={styles.secondaryBtnText}>Schedule Appointment</Text>
+          <Text style={styles.secondaryBtnText} onPress={() => router.push("/bookAppointment")}>Schedule Appointment</Text>
         </TouchableOpacity>
       </View>
 
