@@ -166,9 +166,9 @@ const { refreshing, onRefresh } = usePullToRefresh(fetchStatus);
         <TouchableOpacity
           activeOpacity={0.85}
           style={styles.secondaryBtn}
-          onPress={() => {}}
+          onPress={() => router.push("/appointments/bookAppointment")}
         >
-          <Text style={styles.secondaryBtnText} onPress={() => router.push("/bookAppointment")}>Schedule Appointment</Text>
+          <Text style={styles.secondaryBtnText}>Schedule Appointment</Text>
         </TouchableOpacity>
       </View>
 

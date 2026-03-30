@@ -21,6 +21,25 @@ const generateSlots = (startTime, endTime) => {
   return slots;
 };
 
+const getDoctorSchedule = async (req, res) => {
+  try {
+    const doctorId = req.params.id;
+    const schedule = await Availability.findOne({ doctor_id: doctorId });
+    if (!schedule) {
+      return res
+        .status(404)
+        .json({ message: "Doctor schedule not configured." });
+    }
+    const availableDays = schedule.workingHours
+      .filter((h) => h.isAvailable)
+      .map((h) => h.day);
+    res.status(200).json({ availableDays });
+  } catch (error) {
+    console.error("Error fetching schedule:", error.message);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 // Get /appointments/doctors/:id/availability?date=YYYY-MM-DD
 const getDoctorAvailability = async (req, res) => {
   try {
@@ -109,7 +128,6 @@ const getDoctorAvailability = async (req, res) => {
 };
 
 // post appointment/availiability
-
 const updateAvailability = async (req, res) => {
   try {
     const { doctor_id, workingHours } = req.body;
@@ -308,67 +326,71 @@ const cancelAppointment = async (req, res) => {
 
 //get appointments patients
 const getPatientAppointments = async (req, res) => {
-    try {
-        const patientId = req.params.id;
-        const patient = await User.findById(patientId);
-        if(!patient || patient.role !== "patient"){
-            return res.status(404).json({
-                message: "Patient not found"
-            });
-        }
-        const appointments = await Appointment.find({
-            patient_id: patientId
-        }).populate("doctor_id", "firstName lastName email role").sort({date: 1, time: 1});
-
-        res.status(200).json({
-            patient: {
-                id: patient.id,
-                firstName: patient.firstName,
-                lastName: patient.lastName,
-                role: patient.role
-            },
-            appointments,
-        })
-    } catch (error) {
-        console.error("Error fetching appointments:", error.message);
-        res.status(500).json({
-            message: "Server error"
-        })
+  try {
+    const patientId = req.params.id;
+    const patient = await User.findById(patientId);
+    if (!patient || patient.role !== "patient") {
+      return res.status(404).json({
+        message: "Patient not found",
+      });
     }
-}
+    const appointments = await Appointment.find({
+      patient_id: patientId,
+    })
+      .populate("doctor_id", "firstName lastName email role")
+      .sort({ date: 1, time: 1 });
+
+    res.status(200).json({
+      patient: {
+        id: patient.id,
+        firstName: patient.firstName,
+        lastName: patient.lastName,
+        role: patient.role,
+      },
+      appointments,
+    });
+  } catch (error) {
+    console.error("Error fetching appointments:", error.message);
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+};
 
 //get appointments for providers by id
-const getProviderAppointments = async(req, res) => {
-    try {
-        const providerId = req.params.id;
+const getProviderAppointments = async (req, res) => {
+  try {
+    const providerId = req.params.id;
 
-        const provider = await User.findById(providerId);
-        if(!provider || provider.role !== "provider"){
-            return res.status(404).json({
-                message: "Provider not found",
-            });
-        }
-
-        const appointments = await Appointment.find({
-            doctor_id: providerId
-        }).populate("patient_id", "firstName lastName email role").sort({date: 1, time: 1});
-
-        res.status(200).json({
-            provider: {
-                id: provider._id,
-                firstName: provider.firstName,
-                lastName: provider.lastName,
-                role: provider.role
-            },
-            appointments
-        });
-    } catch (error) {
-        console.error("Error fetching provider appointments:", error.message);
-        res.status(500).json({
-            message: "Server Error"
-        })
+    const provider = await User.findById(providerId);
+    if (!provider || provider.role !== "provider") {
+      return res.status(404).json({
+        message: "Provider not found",
+      });
     }
-}
+
+    const appointments = await Appointment.find({
+      doctor_id: providerId,
+    })
+      .populate("patient_id", "firstName lastName email role")
+      .sort({ date: 1, time: 1 });
+
+    res.status(200).json({
+      provider: {
+        id: provider._id,
+        firstName: provider.firstName,
+        lastName: provider.lastName,
+        role: provider.role,
+      },
+      appointments,
+    });
+  } catch (error) {
+    console.error("Error fetching provider appointments:", error.message);
+    res.status(500).json({
+      message: "Server Error",
+    });
+  }
+};
 
 module.exports = {
   getDoctorAvailability,
@@ -376,5 +398,6 @@ module.exports = {
   cancelAppointment,
   updateAvailability,
   getPatientAppointments,
-  getProviderAppointments
+  getProviderAppointments,
+  getDoctorSchedule,
 };
