@@ -17,12 +17,14 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { useAuth } from "@/src/context/AuthContext";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPw, setShowPw] = useState(false);
+  const { setUser } = useAuth();
 
   const insets = useSafeAreaInsets();
 
@@ -35,6 +37,7 @@ export default function LoginPage() {
     try {
       setLoading(true);
       const data = await login(email.trim(), password);
+      setUser(data.user);
       Alert.alert("Success", `Welcome ${data.user.firstName}`);
       router.replace("/(tabs)/dashboard");
     } catch (error: any) {

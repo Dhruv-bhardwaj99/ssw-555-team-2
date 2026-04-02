@@ -99,6 +99,8 @@ export default function BookAppointmentScreen() {
     }
   }, []);
 
+  console.log("doctors__!", doctors)
+
   useEffect(() => {
     loadDoctors();
   }, [loadDoctors]);

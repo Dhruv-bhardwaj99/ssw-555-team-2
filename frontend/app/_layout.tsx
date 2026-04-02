@@ -10,6 +10,7 @@ import { useMemo } from "react";
 
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { AuthProvider } from "@/src/context/AuthContext";
 
 export const unstable_settings = {
   anchor: "(tabs)",
@@ -49,6 +50,7 @@ export default function RootLayout() {
   const theme = colorScheme === "dark" ? DarkAppTheme : LightAppTheme;
 
   return (
+    <AuthProvider>
     <SafeAreaProvider>
       <ThemeProvider value={theme}>
         <Stack
@@ -61,7 +63,7 @@ export default function RootLayout() {
           <Stack.Screen name="signup" options={{ headerShown: false }} />
           <Stack.Screen name="appointments/bookAppointment" options={{headerShown: false}} />
           <Stack.Screen name="appointments/confirmAppointment" options={{headerShown: false}} />
-          <Stack.Screen name="appointments/myAppointment" options={{headerShown: false}} />
+          <Stack.Screen name="appointments/myAppointments" options={{headerShown: false}} />
           <Stack.Screen
             name="modal"
             options={{ presentation: "modal", title: "Modal" }}
@@ -70,5 +72,6 @@ export default function RootLayout() {
         <StatusBar style={colorScheme === "light" ? "light" : "dark"} />
       </ThemeProvider>
     </SafeAreaProvider>
+    </AuthProvider>
   );
 }

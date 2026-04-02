@@ -1,15 +1,17 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { API_BASE_URL } from "@/src/config/api";
 import RefreshableScroll from "@/components/RefreshableScroll";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
-import { router } from "expo-router"
+import { router } from "expo-router";
+import { useAuth } from "@/src/context/AuthContext";
+import { Appointment, fetchUserAppointments } from "@/src/services/appointments";
 
 
 type CardProps = {
@@ -60,24 +62,57 @@ function Card({
 }
 
 export default function DashboardScreen() {
-  const [apiStatus, setApiStatus] = useState("Checking backend...");
-  const fetchStatus = async () => {
-  try {
-    const res = await fetch(`${API_BASE_URL}/`); // or /health if you added it
-    const json = await res.json();
-    setApiStatus(json?.message ? "Backend connected ✅" : "Backend responded ⚠️");
-  } catch {
-    setApiStatus("Backend not reachable ❌");
-  }
-};
+  const { user } = useAuth();
+  const [nextAppointment, setNextAppointment] = useState<Appointment | null>(null);
 
-useEffect(() => {
-  fetchStatus();
-}, []);
+  const loadAll = useCallback(async () => {
+    if (user) {
+      try {
+        const data = await fetchUserAppointments(user._id);
+        const upcoming = data
+          .filter((a) => a.status === "scheduled")
+          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        setNextAppointment(upcoming[0] ?? null);
+      } catch {
+        // silently fail — dashboard shouldn't break if this errors
+      }
+    }
+  }, [user]);
 
-const { refreshing, onRefresh } = usePullToRefresh(fetchStatus);
+  useEffect(() => {
+    loadAll();
+  }, [loadAll]);
+
+  const { refreshing, onRefresh } = usePullToRefresh(loadAll);
+
+  const formatDate = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const getOtherPersonName = (appt: Appointment) => {
+    if (user?.role === "provider") {
+      if (typeof appt.patient_id === "object" && appt.patient_id !== null) {
+        return `${appt.patient_id.firstName} ${appt.patient_id.lastName}`;
+      }
+      return "Patient";
+    }
+    if (typeof appt.doctor_id === "object" && appt.doctor_id !== null) {
+      return `Dr. ${appt.doctor_id.firstName} ${appt.doctor_id.lastName}`;
+    }
+    return "Doctor";
+  };
   
   return (
+    <SafeAreaView style={styles.safe}>
     <RefreshableScroll
       style={styles.container}
       contentContainerStyle={styles.contentContainer}
@@ -87,20 +122,21 @@ const { refreshing, onRefresh } = usePullToRefresh(fetchStatus);
     >
       <Text style={styles.header}>Dashboard</Text>
       <Text style={styles.subheader}>Health overview at a glance</Text>
-      <Text style={{ color: "#0B0F19", opacity: 0.7, marginBottom: 12 }}>
-        {apiStatus}
-      </Text>
 
       {/* Top summary cards (your original ones) */}
       <View style={styles.grid}>
         <Card
           title="Upcoming Appointment"
-          value="None scheduled"
-          subtitle="Book your next visit"
+          value={nextAppointment ? getOtherPersonName(nextAppointment) : "None scheduled"}
+          subtitle={
+            nextAppointment
+              ? `${formatDate(nextAppointment.date)} at ${nextAppointment.time}`
+              : "Book your next visit"
+          }
           variant="blue"
           iconName="calendar"
           iconColor="#1D4ED8"
-          onPress={() => {}}
+          onPress={() => router.push("/appointments/myAppointments")}
         />
         <Card
           title="Unread Messages"
@@ -146,10 +182,21 @@ const { refreshing, onRefresh } = usePullToRefresh(fetchStatus);
       {/* Upcoming Actions */}
       <Text style={styles.sectionTitle}>Upcoming Actions</Text>
 
-      <TouchableOpacity activeOpacity={0.85} style={styles.actionItem}>
+      <TouchableOpacity
+        activeOpacity={0.85}
+        style={styles.actionItem}
+        onPress={() => router.push("/appointments/myAppointments")}
+      >
         <View style={styles.actionRow}>
           <Ionicons name="time" size={18} color="#1D4ED8" />
-          <Text style={styles.actionText}>None</Text>
+          <Text style={styles.actionText}>
+            {nextAppointment
+              ? `${getOtherPersonName(nextAppointment)} — ${formatDate(nextAppointment.date)} at ${nextAppointment.time}`
+              : "No upcoming appointments"}
+          </Text>
+          {nextAppointment && (
+            <Ionicons name="chevron-forward" size={16} color="#1D4ED8" style={{ marginLeft: "auto" }} />
+          )}
         </View>
       </TouchableOpacity>
 
@@ -174,17 +221,23 @@ const { refreshing, onRefresh } = usePullToRefresh(fetchStatus);
 
       <View style={{ height: 24 }} />
     </RefreshableScroll>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    overflow: "hidden",
+  },
   container: {
     flex: 1,
-    backgroundColor: "#FFFFFF", // white background
+    backgroundColor: "#FFFFFF",
   },
   contentContainer: {
     padding: 16,
-    paddingTop: 56,
+    paddingTop: 16,
   },
 
   header: {
