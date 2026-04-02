@@ -5,9 +5,11 @@ const userRoutes = require("./routes/userRoutes");
 const messageRoutes = require("./routes/messageRoutes");
 const appointmentRoutes = require("./routes/appointmentRoutes");
 
+const cors = require("cors");
 const app = express();
 
 // Middleware
+app.use(cors());
 app.use(express.json());
 
 // Connect to MongoDB

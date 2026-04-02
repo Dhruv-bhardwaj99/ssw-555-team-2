@@ -1,12 +1,20 @@
 import { API_BASE_URL } from "../config/api";
 
-export type Doctor ={
+export type Doctor = {
     _id: string;
-    firstName: string,
-    lastName: string,
-    email: string,
+    firstName: string;
+    lastName: string;
+    email: string;
     role: "provider";
-}
+};
+
+export type Patient = {
+    _id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    role: "patient";
+};
 
 export type AvailabilitySlot = string;
 
@@ -23,7 +31,7 @@ export type DoctorAvailabilityResponse ={
 
 export type Appointment = {
     _id: string;
-    patient_id: string;
+    patient_id: string | Patient;
     doctor_id: string | Doctor;
     date: string;
     time: string;
@@ -87,10 +95,10 @@ export async function cancelAppointment(
     return data;
 }
 
-export async function fetchPatientAppointments(
-    patientId: string,
+export async function fetchUserAppointments(
+    userId: string,
 ): Promise<Appointment[]> {
-    const res = await fetch(`${API_BASE_URL}/appointments/patient/${patientId}`);
+    const res = await fetch(`${API_BASE_URL}/appointments/user/${userId}`);
     const data = await res.json();
     if(!res.ok){
         throw new Error(data?.message || data?.error || "Failed to fetch appointments");
