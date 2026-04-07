@@ -202,13 +202,6 @@ export default function DashboardScreen() {
 
       {/* Buttons with feedback (TouchableOpacity) */}
       <View style={styles.actions}>
-        <TouchableOpacity
-          activeOpacity={0.85}
-          style={styles.primaryBtn}
-          onPress={() => {}}
-        >
-          <Text style={styles.primaryBtnText}>Message Doctor</Text>
-        </TouchableOpacity>
 
         <TouchableOpacity
           activeOpacity={0.85}
