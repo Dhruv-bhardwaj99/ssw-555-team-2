@@ -4,17 +4,19 @@ import React from "react";
 import { HapticTab } from "@/components/haptic-tab";//this
 import { IconSymbol } from "@/components/ui/icon-symbol";//this
 import { Ionicons } from "@expo/vector-icons";
+import { useAuth } from "@/src/context/AuthContext";
 
 export default function TabLayout() {
+  const { user } = useAuth();
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarButton: HapticTab,//this
+        tabBarButton: HapticTab,
         tabBarStyle: {
           backgroundColor: "#FFFFFF",
-          borderTopColor: "#E6EAF2",//this
-          borderTopWidth: 1,//this
+          borderTopColor: "#E6EAF2",
+          borderTopWidth: 1,
         },
         tabBarActiveTintColor: "#1D4ED8",
         tabBarInactiveTintColor: "rgba(11, 15, 25, 0.6)",
@@ -25,8 +27,7 @@ export default function TabLayout() {
         options={{
           title: "Dashboard",
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="house.fill" color={color} />//this
-            //<Ionicons name="home" size={24} color={color} />  //added now to test
+            <IconSymbol size={28} name="house.fill" color={color} />
           ),
         }}
       />
@@ -34,7 +35,7 @@ export default function TabLayout() {
         name="messages"
         options={{
           title: "messages",
-          tabBarIcon: ({ color, size}) => (
+          tabBarIcon: ({ color }) => (
             <Ionicons name="chatbubble" size={24} color={color} />
           ),
         }}
@@ -43,13 +44,16 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Profile",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person" size={24} color={color} />
+          title: user ? "Profile" : "Log In",
+          tabBarIcon: ({ color }) => (
+            <Ionicons
+              name={user ? "person" : "log-in-outline"}
+              size={24}
+              color={color}
+            />
           ),
         }}
       />
-      
     </Tabs>
   );
 }

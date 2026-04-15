@@ -6,6 +6,7 @@ type User = {
   lastName: string;
   email: string;
   role: "patient" | "provider" | "admin";
+  createdAt?: string;
 };
 
 type AuthContextType = {
