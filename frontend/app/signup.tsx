@@ -18,9 +18,11 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import { Picker } from "@react-native-picker/picker";
+import { useAuth } from "@/src/context/AuthContext";
 
 export default function SignupPage() {
   const insets = useSafeAreaInsets();
+  const { setUser } = useAuth();
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -61,7 +63,7 @@ export default function SignupPage() {
         password,
         role,
       });
-
+      setUser(data.user);
       Alert.alert("Account created", `Welcome ${data.user.firstName}!`);
       router.replace("/(tabs)/dashboard");
     } catch (error: any) {

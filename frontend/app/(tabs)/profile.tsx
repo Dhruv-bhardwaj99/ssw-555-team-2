@@ -49,7 +49,7 @@ export default function ProfileTab(){
   };
 
   const handleAppointmentHistory = () => {
-    Alert.alert("Coming soon", "Appointment history will be available in a future update.");
+    router.push("/appointments/appointmentHistory");
   };
 
   return(

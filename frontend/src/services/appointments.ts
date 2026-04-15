@@ -114,3 +114,14 @@ export async function fetchDoctorSchedule(doctorId: string): Promise<string[]> {
   }
   return data.availableDays as string[];
 }
+
+export async function fetchAppointmentHistory(
+    userId: string,
+): Promise<Appointment[]> {
+    const res = await fetch(`${API_BASE_URL}/appointments/user/${userId}/history`);
+    const data = await res.json();
+    if (!res.ok) {
+        throw new Error(data?.message || data?.error || "Failed to fetch appointment history");
+    }
+    return data.appointments as Appointment[];
+}
