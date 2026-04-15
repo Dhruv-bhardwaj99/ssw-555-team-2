@@ -64,6 +64,7 @@ export default function RootLayout() {
           <Stack.Screen name="appointments/bookAppointment" options={{headerShown: false}} />
           <Stack.Screen name="appointments/confirmAppointment" options={{headerShown: false}} />
           <Stack.Screen name="appointments/myAppointments" options={{headerShown: false}} />
+          <Stack.Screen name="appointments/appointmentHistory" options={{headerShown: false}} />
           <Stack.Screen
             name="modal"
             options={{ presentation: "modal", title: "Modal" }}

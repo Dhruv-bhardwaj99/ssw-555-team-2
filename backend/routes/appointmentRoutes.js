@@ -7,7 +7,8 @@ const {
     cancelAppointment,
     updateAvailability,
     getUserAppointments,
-    getDoctorSchedule
+    getDoctorSchedule,
+    getAppointmentHistory
 } = require("../controllers/appointmentController");
 
 router.post("/availability", updateAvailability);
@@ -16,5 +17,6 @@ router.post("/", createAppointment);
 router.put("/:id/cancel", cancelAppointment);
 router.get("/user/:id", getUserAppointments);
 router.get("/doctors/:id/schedule", getDoctorSchedule);
+router.get("/user/:id/history", getAppointmentHistory);
 
 module.exports = router;

@@ -363,6 +363,63 @@ const getUserAppointments = async (req, res) => {
   }
 };
 
+// GET /appointments/user/:id/history
+const getAppointmentHistory = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    let query = {};
+
+    if (user.role === "patient") {
+      query = {
+        patient_id: userId,
+        status: {
+          $in: ["completed", "cancelled"],
+        },
+      };
+    } else if (user.role === "provider") {
+      query = {
+        doctor_id: userId,
+        status: {
+          $in: ["completed", "cancelled"],
+        },
+      };
+    } else {
+      return res.status(400).json({
+        message: "User role not supported",
+      });
+    }
+
+    const appointments = await Appointment.find(query)
+      .populate("doctor_id", "firstName lastName email role")
+      .populate("patient_id", "firstName lastName email role")
+      .sort({
+        date: -1,
+        time: -1,
+      });
+
+    res.status(200).json({
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+      },
+      appointments,
+    });
+  } catch (error) {
+    console.error("Error fetching appointment history:", error.message);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 module.exports = {
   getDoctorAvailability,
   createAppointment,
@@ -370,4 +427,5 @@ module.exports = {
   updateAvailability,
   getUserAppointments,
   getDoctorSchedule,
+  getAppointmentHistory
 };
