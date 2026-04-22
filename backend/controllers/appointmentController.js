@@ -1,77 +1,61 @@
 const Appointment = require("../models/appointment");
 const User = require("../models/user");
 const Availability = require("../models/availability");
-const { createCalendarEvent } = require("../utils/googleCalendar");
 
-const generateSlots = (startTime, endTime) => {
+// ── Slot generator helper ────────────────────────────────────────────────────
+function parseTimeToMinutes(timeStr) {
+  // Handles both "HH:MM AM/PM" and plain "HH:MM" 24-hour formats
+  const parts = timeStr.trim().split(" ");
+  const [h, m] = parts[0].split(":").map(Number);
+  const period = parts[1]?.toUpperCase();
+  let hours = h;
+  if (period === "AM" && h === 12) hours = 0;
+  else if (period === "PM" && h !== 12) hours = h + 12;
+  return hours * 60 + m;
+}
+
+function generateSlots(startTime, endTime) {
   const slots = [];
-  let current = new Date(`2000-01-01 ${startTime}`);
-  const end = new Date(`2000-01-01 ${endTime}`);
+  let current = parseTimeToMinutes(startTime);
+  const end = parseTimeToMinutes(endTime);
 
   while (current < end) {
-    let hours = current.getHours();
-    const ampm = hours >= 12 ? "PM" : "AM";
-    hours = hours % 12;
-    hours = hours ? hours : 12;
-    const strTime = `${hours.toString().padStart(2, "0")}:00 ${ampm}`;
-
-    slots.push(strTime);
-    current.setHours(current.getHours() + 1);
+    const h = Math.floor(current / 60);
+    const m = current % 60;
+    const period = h < 12 ? "AM" : "PM";
+    const displayH = h % 12 === 0 ? 12 : h % 12;
+    slots.push(`${displayH}:${String(m).padStart(2, "0")} ${period}`);
+    current += 30;
   }
   return slots;
-};
+}
 
-const getDoctorSchedule = async (req, res) => {
-  try {
-    const doctorId = req.params.id;
-    const schedule = await Availability.findOne({ doctor_id: doctorId });
-    if (!schedule) {
-      return res
-        .status(404)
-        .json({ message: "Doctor schedule not configured." });
-    }
-    const availableDays = schedule.workingHours
-      .filter((h) => h.isAvailable)
-      .map((h) => h.day);
-    res.status(200).json({ availableDays });
-  } catch (error) {
-    console.error("Error fetching schedule:", error.message);
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
-// Get /appointments/doctors/:id/availability?date=YYYY-MM-DD
+// GET /appointments/doctors/:doctorId/availability
 const getDoctorAvailability = async (req, res) => {
   try {
-    const doctorId = req.params.id;
+    const doctorId = req.params.doctorId ?? req.params.id;
     const { date } = req.query;
 
     if (!date) {
-      return res.status(400).json({
-        message: "Date query parameter is required",
-      });
+      return res.status(400).json({ message: "date query param is required" });
     }
 
     const [year, month, day] = date.split("-").map(Number);
     const searchDate = new Date(year, month - 1, day);
-    const dayName = new Intl.DateTimeFormat("en-US", {
-      weekday: "long",
-    }).format(searchDate);
+    const dayName = [
+      "Sunday", "Monday", "Tuesday", "Wednesday",
+      "Thursday", "Friday", "Saturday",
+    ][searchDate.getDay()];
 
     const schedule = await Availability.findOne({ doctor_id: doctorId });
     if (!schedule) {
-      return res.status(404).json({
-        message: "Doctor schedule not configured.",
-      });
+      return res.status(404).json({ message: "No availability set for this doctor" });
     }
     const dayConfig = schedule.workingHours.find((h) => h.day === dayName);
 
     const doctor = await User.findById(doctorId);
-
     if (!doctor || doctor.role !== "provider") {
-      return res.status(404).json({
-        message: "Doctor not found",
-      });
+      return res.status(404).json({ message: "Doctor not found" });
     }
 
     if (!dayConfig || !dayConfig.isAvailable) {
@@ -87,14 +71,10 @@ const getDoctorAvailability = async (req, res) => {
       });
     }
 
-    const allPossibleSlots = generateSlots(
-      dayConfig.startTime,
-      dayConfig.endTime,
-    );
+    const allPossibleSlots = generateSlots(dayConfig.startTime, dayConfig.endTime);
 
     const startOfDay = new Date(searchDate);
     startOfDay.setHours(0, 0, 0, 0);
-
     const endOfDay = new Date(searchDate);
     endOfDay.setHours(23, 59, 59, 999);
 
@@ -103,12 +83,9 @@ const getDoctorAvailability = async (req, res) => {
       date: { $gte: startOfDay, $lte: endOfDay },
       status: "scheduled",
     });
-    const takenSlots = existingAppointments.map((appointment) => {
-      return appointment.time;
-    });
-    const availableSlots = allPossibleSlots.filter((slot) => {
-      return !takenSlots.includes(slot);
-    });
+    const takenSlots = existingAppointments.map((a) => a.time);
+    const availableSlots = allPossibleSlots.filter((slot) => !takenSlots.includes(slot));
+
     res.status(200).json({
       doctor: {
         id: doctor._id,
@@ -120,165 +97,32 @@ const getDoctorAvailability = async (req, res) => {
       availableSlots,
     });
   } catch (error) {
-    console.error("Error fetching avaiability:", error.message);
-    res.status(500).json({
-      message: "Server error",
-    });
+    console.error("Error fetching availability:", error.message);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-// post appointment/availiability
-const updateAvailability = async (req, res) => {
-  try {
-    const { doctor_id, workingHours } = req.body;
-    if (!doctor_id || !workingHours) {
-      return res.status(400).json({
-        message: "doctor_id and workingHours are requrired ",
-      });
-    }
-
-    const doctor = await User.findById(doctor_id);
-    if (!doctor || doctor.role !== "provider") {
-      return res.status(400).json({
-        message: "Only providers can set availability",
-      });
-    }
-
-    const availability = await Availability.findOneAndUpdate(
-      {
-        doctor_id,
-      },
-      { workingHours },
-      { returnDocument: "after", upsert: true },
-    );
-
-    res.status(200).json({
-      message: "Availability updated successfully",
-      availability,
-    });
-  } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-};
-
-//post appointments
+// POST /appointments
 const createAppointment = async (req, res) => {
   try {
     const { patient_id, doctor_id, date, time, notes } = req.body;
 
     if (!patient_id || !doctor_id || !date || !time) {
-      return res.status(400).json({
-        error: "patient_id, doctor_id, date, and time are required",
-      });
+      return res.status(400).json({ message: "patient_id, doctor_id, date, and time are required" });
     }
 
-    const patient = await User.findById(patient_id);
-    const doctor = await User.findById(doctor_id);
-
-    if (!patient || patient.role !== "patient") {
-      return res.status(400).json({
-        message: "Only a patient can book an appointment",
-      });
-    }
-
-    if (!doctor || doctor.role !== "provider") {
-      return res.status(400).json({
-        message: "Appintments can only be booked with a provider",
-      });
-    }
-
-    const schedule = await Availability.findOne({ doctor_id });
-    if (!schedule) {
-      return res.status(404).json({
-        message: "Doctor schedule not configured",
-      });
-    }
-
-    const [year, month, day] = date.split("-").map(Number);
-    const appointmentDate = new Date(year, month - 1, day);
-    if (!year || !month || !day || isNaN(appointmentDate.getTime())) {
-      return res.status(400).json({
-        message: "Invalid date format. Use YYYY-MM-DD",
-      });
-    }
-    const dayName = new Intl.DateTimeFormat("en-US", {
-      weekday: "long",
-    }).format(appointmentDate);
-    const dayConfig = schedule.workingHours.find((h) => h.day === dayName);
-
-    if (!dayConfig) {
-      return res.status(400).json({
-        message: `Doctor does not have office hours on ${dayName}s.`,
-      });
-    }
-
-    if (!dayConfig.isAvailable) {
-      return res.status(400).json({
-        message: `Doctor is marked as unavailable on this specific ${dayName}.`,
-      });
-    }
-
-    const validSlots = generateSlots(dayConfig.startTime, dayConfig.endTime);
-    if (!validSlots.includes(time)) {
-      return res.status(400).json({
-        message: `Invalid time slot. On ${dayName}s, doctor only works from ${dayConfig.startTime} to ${dayConfig.endTime}.`,
-      });
-    }
-
-    const startOfDay = new Date(appointmentDate);
-    startOfDay.setHours(0, 0, 0, 0);
-
-    const endOfDay = new Date(appointmentDate);
-    endOfDay.setHours(23, 59, 59, 999);
-
-    const existingAppointment = await Appointment.findOne({
+    const appointment = await Appointment.create({
+      patient_id,
       doctor_id,
-      date: { $gte: startOfDay, $lte: endOfDay },
+      date,
       time,
+      notes,
       status: "scheduled",
     });
 
-    if (existingAppointment) {
-      return res.status(409).json({
-        message: "This time slot is already booked",
-      });
-    }
-
-    const appointment = new Appointment({
-      patient_id,
-      doctor_id,
-      date: appointmentDate,
-      time,
-      notes,
-    });
-
-    const savedAppointment = await appointment.save();
-
-    // Sync to Google Calendar — non-blocking, failure won't affect the booking
-    try {
-      const [hour, minutePart] = time.split(":");
-      const [min, period] = minutePart.split(" ");
-      let startHour = parseInt(hour);
-      if (period === "PM" && startHour !== 12) startHour += 12;
-      if (period === "AM" && startHour === 12) startHour = 0;
-
-      const startISO = `${date}T${String(startHour).padStart(2, "0")}:${min}:00`;
-      const endHour = (startHour + 1) % 24;
-      const endISO = `${date}T${String(endHour).padStart(2, "0")}:${min}:00`;
-
-      await createCalendarEvent({
-        summary: `Appointment: ${patient.firstName} ${patient.lastName} with Dr. ${doctor.lastName}`,
-        description: notes || "",
-        start: startISO,
-        end: endISO,
-      });
-    } catch (calendarError) {
-      console.error("Google Calendar sync failed:", calendarError.message);
-    }
-
     res.status(201).json({
       message: "Appointment scheduled successfully",
-      appointment: savedAppointment,
+      appointment,
     });
   } catch (error) {
     console.error("Error creating appointment:", error.message);
@@ -289,23 +133,17 @@ const createAppointment = async (req, res) => {
   }
 };
 
-//put appointments cancellation
+// PUT /appointments/:id/cancel
 const cancelAppointment = async (req, res) => {
   try {
     const { id } = req.params;
 
     const appointment = await Appointment.findById(id);
-
     if (!appointment) {
-      return res.status(404).json({
-        error: "Appointment not found",
-      });
+      return res.status(404).json({ error: "Appointment not found" });
     }
-
     if (appointment.status === "cancelled") {
-      return res.status(400).json({
-        message: "Appointment is already cancelled",
-      });
+      return res.status(400).json({ message: "Appointment is already cancelled" });
     }
 
     appointment.status = "cancelled";
@@ -370,40 +208,23 @@ const getAppointmentHistory = async (req, res) => {
     const user = await User.findById(userId);
 
     if (!user) {
-      return res.status(404).json({
-        message: "User not found",
-      });
+      return res.status(404).json({ message: "User not found" });
     }
 
     let query = {};
 
     if (user.role === "patient") {
-      query = {
-        patient_id: userId,
-        status: {
-          $in: ["completed", "cancelled"],
-        },
-      };
+      query = { patient_id: userId, status: { $in: ["completed", "cancelled"] } };
     } else if (user.role === "provider") {
-      query = {
-        doctor_id: userId,
-        status: {
-          $in: ["completed", "cancelled"],
-        },
-      };
+      query = { doctor_id: userId, status: { $in: ["completed", "cancelled"] } };
     } else {
-      return res.status(400).json({
-        message: "User role not supported",
-      });
+      return res.status(400).json({ message: "User role not supported" });
     }
 
     const appointments = await Appointment.find(query)
       .populate("doctor_id", "firstName lastName email role")
       .populate("patient_id", "firstName lastName email role")
-      .sort({
-        date: -1,
-        time: -1,
-      });
+      .sort({ date: -1, time: -1 });
 
     res.status(200).json({
       user: {
@@ -420,12 +241,152 @@ const getAppointmentHistory = async (req, res) => {
   }
 };
 
+// POST /appointments/availability
+const updateAvailability = async (req, res) => {
+  try {
+    const { doctor_id, workingHours } = req.body;
+    if (!doctor_id || !workingHours) {
+      return res.status(400).json({ message: "doctor_id and workingHours are required" });
+    }
+
+    const doctor = await User.findById(doctor_id);
+    if (!doctor || doctor.role !== "provider") {
+      return res.status(400).json({ message: "Only providers can set availability" });
+    }
+
+    const availability = await Availability.findOneAndUpdate(
+      { doctor_id },
+      { workingHours },
+      { returnDocument: "after", upsert: true }
+    );
+
+    res.status(200).json({
+      message: "Availability updated successfully",
+      availability,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+// GET /appointments/doctors/:doctorId/schedule
+const getDoctorSchedule = async (req, res) => {
+  try {
+    const doctorId = req.params.doctorId ?? req.params.id;
+    const schedule = await Availability.findOne({ doctor_id: doctorId });
+
+    if (!schedule) {
+      return res.status(200).json({ availableDays: [] });
+    }
+
+    const availableDays = schedule.workingHours
+      .filter((h) => h.isAvailable)
+      .map((h) => h.day);
+
+    res.status(200).json({ availableDays });
+  } catch (error) {
+    console.error("Error fetching doctor schedule:", error.message);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ── ADMIN ROUTES ─────────────────────────────────────────────────────────────
+
+// PUT /appointments/:id/complete — provider marks an appointment as done
+const completeAppointment = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const appointment = await Appointment.findById(id);
+    if (!appointment) {
+      return res.status(404).json({ message: "Appointment not found" });
+    }
+
+    if (appointment.status === "completed") {
+      return res.status(400).json({ message: "Appointment is already completed" });
+    }
+
+    if (appointment.status === "cancelled") {
+      return res.status(400).json({ message: "Cannot complete a cancelled appointment" });
+    }
+
+    appointment.status = "completed";
+    await appointment.save();
+
+    res.status(200).json({
+      message: "Appointment marked as completed",
+      appointment,
+    });
+  } catch (error) {
+    console.error("Error completing appointment:", error.message);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// GET /appointments/all — admin: fetch every appointment
+const getAllAppointments = async (req, res) => {
+  try {
+    const appointments = await Appointment.find()
+      .populate("doctor_id", "firstName lastName email role")
+      .populate("patient_id", "firstName lastName email role")
+      .sort({ date: -1, time: -1 });
+
+    res.status(200).json({ appointments });
+  } catch (error) {
+    console.error("Error fetching all appointments:", error.message);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// DELETE /appointments/:id — admin: hard-delete an appointment
+const deleteAppointment = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const appointment = await Appointment.findById(id);
+    if (!appointment) {
+      return res.status(404).json({ message: "Appointment not found" });
+    }
+
+    await Appointment.findByIdAndDelete(id);
+
+    res.status(200).json({ message: "Appointment deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting appointment:", error.message);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// GET /appointments/doctors/:id/working-hours
+// Returns the full workingHours array (day + startTime + endTime + isAvailable)
+// Used by the provider's Set Availability screen to pre-populate saved settings
+const getFullWorkingHours = async (req, res) => {
+  try {
+    const doctorId = req.params.id;
+    const schedule = await Availability.findOne({ doctor_id: doctorId });
+
+    if (!schedule) {
+      // No schedule saved yet — return empty so the frontend uses its defaults
+      return res.status(200).json({ workingHours: [] });
+    }
+
+    res.status(200).json({ workingHours: schedule.workingHours });
+  } catch (error) {
+    console.error("Error fetching working hours:", error.message);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 module.exports = {
   getDoctorAvailability,
   createAppointment,
   cancelAppointment,
+  completeAppointment,
   updateAvailability,
   getUserAppointments,
   getDoctorSchedule,
-  getAppointmentHistory
+  getAppointmentHistory,
+  getAllAppointments,
+  deleteAppointment,
+  getFullWorkingHours,
 };

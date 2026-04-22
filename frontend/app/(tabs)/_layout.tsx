@@ -1,4 +1,4 @@
-import { Tabs } from "expo-router";
+import { Redirect, Tabs } from "expo-router";
 import React from "react";
 
 import { HapticTab } from "@/components/haptic-tab";//this
@@ -8,6 +8,11 @@ import { useAuth } from "@/src/context/AuthContext";
 
 export default function TabLayout() {
   const { user } = useAuth();
+
+  if (!user) {
+    return <Redirect href="/login" />;
+  }
+
   return (
     <Tabs
       screenOptions={{
@@ -35,6 +40,7 @@ export default function TabLayout() {
         name="messages"
         options={{
           title: "messages",
+          href: user?.role === "admin" ? null : undefined,
           tabBarIcon: ({ color }) => (
             <Ionicons name="chatbubble" size={24} color={color} />
           ),

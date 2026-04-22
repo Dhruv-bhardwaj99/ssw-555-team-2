@@ -3,18 +3,41 @@ import {
   DefaultTheme,
   ThemeProvider,
 } from "@react-navigation/native";
-import { Stack } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { AuthProvider } from "@/src/context/AuthContext";
+import { AuthProvider, useAuth } from "@/src/context/AuthContext";
 
 export const unstable_settings = {
   anchor: "(tabs)",
 };
+
+const PROTECTED_SEGMENTS = [
+  "(tabs)",
+  "appointments",
+  "availability",
+  "chat",
+  "message-doctor",
+];
+
+function AuthGuard() {
+  const { user } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    const inProtected = PROTECTED_SEGMENTS.includes(segments[0] as string);
+    if (!user && inProtected) {
+      router.replace("/login");
+    }
+  }, [user, segments, router]);
+
+  return null;
+}
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -53,6 +76,7 @@ export default function RootLayout() {
     <AuthProvider>
     <SafeAreaProvider>
       <ThemeProvider value={theme}>
+          <AuthGuard />
         <Stack
           screenOptions={{
             contentStyle: { backgroundColor: theme.colors.background },
@@ -65,6 +89,7 @@ export default function RootLayout() {
           <Stack.Screen name="appointments/confirmAppointment" options={{headerShown: false}} />
           <Stack.Screen name="appointments/myAppointments" options={{headerShown: false}} />
           <Stack.Screen name="appointments/appointmentHistory" options={{headerShown: false}} />
+          <Stack.Screen name="availability/setAvailability" options={{headerShown: false}} />
           <Stack.Screen
             name="modal"
             options={{ presentation: "modal", title: "Modal" }}

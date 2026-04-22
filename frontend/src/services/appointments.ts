@@ -18,14 +18,14 @@ export type Patient = {
 
 export type AvailabilitySlot = string;
 
-export type DoctorAvailabilityResponse ={
+export type DoctorAvailabilityResponse = {
     doctor: {
-        id: string,
-        firstName: string,
-        lastName: string,
-        role: string
+        id: string;
+        firstName: string;
+        lastName: string;
+        role: string;
     };
-    date: string,
+    date: string;
     availableSlots: AvailabilitySlot[];
 };
 
@@ -41,42 +41,43 @@ export type Appointment = {
     updatedAt?: string;
 };
 
-export async function fetchDoctors(): Promise<Doctor[]>{
+export async function fetchDoctors(): Promise<Doctor[]> {
     const res = await fetch(`${API_BASE_URL}/api/users/providers`);
     const data = await res.json();
-    if(!res.ok){
+    if (!res.ok) {
         throw new Error(data?.message || "Failed to fetch doctors");
     }
     return data as Doctor[];
 }
 
-export async function fetchDoctorAvailability(doctorId:string,
+export async function fetchDoctorAvailability(
+    doctorId: string,
     date: string,
-): Promise<DoctorAvailabilityResponse>{
+): Promise<DoctorAvailabilityResponse> {
     const res = await fetch(
         `${API_BASE_URL}/appointments/doctors/${doctorId}/availability?date=${date}`,
     );
     const data = await res.json();
-    if(!res.ok){
+    if (!res.ok) {
         throw new Error(data?.message || "Failed to fetch availability");
     }
     return data as DoctorAvailabilityResponse;
 }
 
 export async function createAppointment(payload: {
-    patient_id: string; 
+    patient_id: string;
     doctor_id: string;
     date: string;
     time: string;
     notes?: string;
-}): Promise<{message: string; appointment: Appointment}>{
+}): Promise<{ message: string; appointment: Appointment }> {
     const res = await fetch(`${API_BASE_URL}/appointments`, {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
     });
     const data = await res.json();
-    if(!res.ok){
+    if (!res.ok) {
         throw new Error(data?.message || data?.error || "Failed to book appointment");
     }
     return data;
@@ -84,13 +85,27 @@ export async function createAppointment(payload: {
 
 export async function cancelAppointment(
     appointmentId: string,
-): Promise<{message: string; appointment: Appointment}>{
+): Promise<{ message: string; appointment: Appointment }> {
     const res = await fetch(`${API_BASE_URL}/appointments/${appointmentId}/cancel`, {
-        method: 'PUT'
+        method: "PUT",
     });
     const data = await res.json();
-    if(!res.ok){
+    if (!res.ok) {
         throw new Error(data?.message || data?.error || "Failed to cancel appointment");
+    }
+    return data;
+}
+
+// Called by the provider to mark a scheduled appointment as done
+export async function completeAppointment(
+    appointmentId: string,
+): Promise<{ message: string; appointment: Appointment }> {
+    const res = await fetch(`${API_BASE_URL}/appointments/${appointmentId}/complete`, {
+        method: "PUT",
+    });
+    const data = await res.json();
+    if (!res.ok) {
+        throw new Error(data?.message || data?.error || "Failed to complete appointment");
     }
     return data;
 }
@@ -100,19 +115,19 @@ export async function fetchUserAppointments(
 ): Promise<Appointment[]> {
     const res = await fetch(`${API_BASE_URL}/appointments/user/${userId}`);
     const data = await res.json();
-    if(!res.ok){
+    if (!res.ok) {
         throw new Error(data?.message || data?.error || "Failed to fetch appointments");
     }
     return data.appointments as Appointment[];
 }
 
 export async function fetchDoctorSchedule(doctorId: string): Promise<string[]> {
-  const res = await fetch(`${API_BASE_URL}/appointments/doctors/${doctorId}/schedule`);
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data?.message || "Failed to fetch doctor schedule");
-  }
-  return data.availableDays as string[];
+    const res = await fetch(`${API_BASE_URL}/appointments/doctors/${doctorId}/schedule`);
+    const data = await res.json();
+    if (!res.ok) {
+        throw new Error(data?.message || "Failed to fetch doctor schedule");
+    }
+    return data.availableDays as string[];
 }
 
 export async function fetchAppointmentHistory(
