@@ -4,6 +4,7 @@ import { useAuth } from "@/src/context/AuthContext";
 import {
   Appointment,
   cancelAppointment,
+  completeAppointment,
   fetchUserAppointments,
 } from "@/src/services/appointments";
 import { Ionicons } from "@expo/vector-icons";
@@ -24,13 +25,14 @@ import {
 
 export default function MyAppointmentsScreen() {
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-
   const [loading, setLoading] = useState(true);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [completingId, setCompletingId] = useState<string | null>(null);
 
-  const { user } = useAuth();
+  const isProvider = user?.role === "provider";
 
   const loadAppointments = async () => {
     if (!user) {
@@ -58,7 +60,6 @@ export default function MyAppointmentsScreen() {
 
   const { refreshing, onRefresh } = usePullToRefresh(loadAppointments);
 
-  // Format date for display
   const formatDate = (dateStr: string) => {
     try {
       const d = new Date(dateStr);
@@ -73,10 +74,24 @@ export default function MyAppointmentsScreen() {
     }
   };
 
+  const getOtherPersonName = (appt: Appointment) => {
+    if (user?.role === "provider") {
+      if (typeof appt.patient_id === "object" && appt.patient_id !== null) {
+        return `${appt.patient_id.firstName} ${appt.patient_id.lastName}`;
+      }
+      return "Patient";
+    }
+    if (typeof appt.doctor_id === "object" && appt.doctor_id !== null) {
+      return `Dr. ${appt.doctor_id.firstName} ${appt.doctor_id.lastName}`;
+    }
+    return "Doctor";
+  };
+
+  // ── Cancel ──────────────────────────────────────────────────────────────────
   const handleCancel = (appt: Appointment) => {
     Alert.alert(
       "Cancel appointment",
-      `Are you sure you want to cancel your appointment on ${formatDate(appt.date)} at ${appt.time}?`,
+      `Are you sure you want to cancel the appointment on ${formatDate(appt.date)} at ${appt.time}?`,
       [
         { text: "No, keep it", style: "cancel" },
         {
@@ -86,18 +101,14 @@ export default function MyAppointmentsScreen() {
             try {
               setCancellingId(appt._id);
               await cancelAppointment(appt._id);
-              // Update local state
               setAppointments((prev) =>
                 prev.map((a) =>
                   a._id === appt._id ? { ...a, status: "cancelled" } : a,
                 ),
               );
-              Alert.alert("Cancelled", "Your appointment has been cancelled.");
+              Alert.alert("Cancelled", "The appointment has been cancelled.");
             } catch (err: any) {
-              Alert.alert(
-                "Error",
-                err?.message || "Failed to cancel appointment",
-              );
+              Alert.alert("Error", err?.message || "Failed to cancel appointment");
             } finally {
               setCancellingId(null);
             }
@@ -107,22 +118,37 @@ export default function MyAppointmentsScreen() {
     );
   };
 
-  // Returns the other party's name depending on who is logged in:
-  // - Patient sees provider name (from populated doctor_id)
-  // - Provider sees patient name (from populated patient_id)
-  const getOtherPersonName = (appt: Appointment) => {
-    if (user?.role === "provider") {
-      if (typeof appt.patient_id === "object" && appt.patient_id !== null) {
-        return `${appt.patient_id.firstName} ${appt.patient_id.lastName}`;
-      }
-      return "Patient";
-    }
-    // default: patient view shows doctor
-    if (typeof appt.doctor_id === "object" && appt.doctor_id !== null) {
-      return `Dr. ${appt.doctor_id.firstName} ${appt.doctor_id.lastName}`;
-    }
-    return "Doctor";
+  // ── Complete (provider only) ────────────────────────────────────────────────
+  const handleComplete = (appt: Appointment) => {
+    const patientName = getOtherPersonName(appt);
+    Alert.alert(
+      "Mark as Completed",
+      `Mark the appointment with ${patientName} on ${formatDate(appt.date)} at ${appt.time} as completed?`,
+      [
+        { text: "Not yet", style: "cancel" },
+        {
+          text: "Yes, complete",
+          onPress: async () => {
+            try {
+              setCompletingId(appt._id);
+              await completeAppointment(appt._id);
+              setAppointments((prev) =>
+                prev.map((a) =>
+                  a._id === appt._id ? { ...a, status: "completed" } : a,
+                ),
+              );
+              Alert.alert("Done", `Appointment with ${patientName} marked as completed.`);
+            } catch (err: any) {
+              Alert.alert("Error", err?.message || "Failed to complete appointment");
+            } finally {
+              setCompletingId(null);
+            }
+          },
+        },
+      ],
+    );
   };
+
   const statusConfig = {
     scheduled: {
       label: "Scheduled",
@@ -171,23 +197,22 @@ export default function MyAppointmentsScreen() {
         <Text style={styles.subheader}>Upcoming and past visits</Text>
 
         {loading ? (
-          <ActivityIndicator
-            size="large"
-            color="#1D4ED8"
-            style={{ marginTop: 40 }}
-          />
+          <ActivityIndicator size="large" color="#1D4ED8" style={{ marginTop: 40 }} />
         ) : appointments.length === 0 ? (
           <View style={styles.emptyWrap}>
             <Ionicons name="calendar-outline" size={48} color="#E6EAF2" />
             <Text style={styles.emptyTitle}>No appointments yet</Text>
             <Text style={styles.emptySubtitle}>
-              Book your first appointment to get started
+              {isProvider
+                ? "Your scheduled appointments will appear here"
+                : "Book your first appointment to get started"}
             </Text>
           </View>
         ) : (
           appointments.map((appt) => {
             const config = statusConfig[appt.status] ?? statusConfig.scheduled;
             const isCancelling = cancellingId === appt._id;
+            const isCompleting = completingId === appt._id;
 
             return (
               <View
@@ -200,6 +225,7 @@ export default function MyAppointmentsScreen() {
                   },
                 ]}
               >
+                {/* Name row */}
                 <View style={styles.apptTopRow}>
                   <Ionicons name="person" size={16} color="#1D4ED8" />
                   <Text style={styles.apptDoctor}>
@@ -207,6 +233,7 @@ export default function MyAppointmentsScreen() {
                   </Text>
                 </View>
 
+                {/* Date/time row */}
                 <View style={styles.apptDetailRow}>
                   <Ionicons
                     name="calendar-outline"
@@ -219,6 +246,7 @@ export default function MyAppointmentsScreen() {
                   </Text>
                 </View>
 
+                {/* Notes row */}
                 {appt.notes ? (
                   <View style={styles.apptDetailRow}>
                     <Ionicons
@@ -233,24 +261,54 @@ export default function MyAppointmentsScreen() {
                   </View>
                 ) : null}
 
+                {/* Bottom row: badge + action buttons */}
                 <View style={styles.apptBottomRow}>
-                  <Text style={config.badgeStyle}>
-                    {config.label}
-                  </Text>
+                  <Text style={config.badgeStyle}>{config.label}</Text>
 
                   {appt.status === "scheduled" && (
-                    <TouchableOpacity
-                      onPress={() => handleCancel(appt)}
-                      activeOpacity={0.7}
-                      disabled={isCancelling}
-                      hitSlop={8}
-                    >
-                      {isCancelling ? (
-                        <ActivityIndicator size="small" color="#EF4444" />
-                      ) : (
-                        <Text style={styles.cancelLink}>Cancel</Text>
+                    <View style={styles.actionButtons}>
+
+                      {/* Mark Complete — providers only */}
+                      {isProvider && (
+                        <TouchableOpacity
+                          style={styles.completeBtn}
+                          onPress={() => handleComplete(appt)}
+                          disabled={isCompleting || isCancelling}
+                          activeOpacity={0.75}
+                          hitSlop={8}
+                        >
+                          {isCompleting ? (
+                            <ActivityIndicator size="small" color="#16A34A" />
+                          ) : (
+                            <>
+                              <Ionicons
+                                name="checkmark-circle-outline"
+                                size={14}
+                                color="#16A34A"
+                              />
+                              <Text style={styles.completeBtnText}>
+                                Complete
+                              </Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
                       )}
-                    </TouchableOpacity>
+
+                      {/* Cancel — both roles */}
+                      <TouchableOpacity
+                        onPress={() => handleCancel(appt)}
+                        activeOpacity={0.7}
+                        disabled={isCancelling || isCompleting}
+                        hitSlop={8}
+                      >
+                        {isCancelling ? (
+                          <ActivityIndicator size="small" color="#EF4444" />
+                        ) : (
+                          <Text style={styles.cancelLink}>Cancel</Text>
+                        )}
+                      </TouchableOpacity>
+
+                    </View>
                   )}
                 </View>
               </View>
@@ -258,16 +316,23 @@ export default function MyAppointmentsScreen() {
           })
         )}
 
-         {/* Book new appointment button */}
-        <TouchableOpacity
-          activeOpacity={0.85}
-          style={styles.primaryBtn}
-          onPress={() => router.push("/appointments/bookAppointment")}
-        >
-          <Ionicons name="add-circle" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-          <Text style={styles.primaryBtnText}>Book new appointment</Text>
-        </TouchableOpacity>
- 
+        {/* Book new appointment — patients only */}
+        {!isProvider && (
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={styles.primaryBtn}
+            onPress={() => router.push("/appointments/bookAppointment")}
+          >
+            <Ionicons
+              name="add-circle"
+              size={20}
+              color="#FFFFFF"
+              style={{ marginRight: 8 }}
+            />
+            <Text style={styles.primaryBtnText}>Book new appointment</Text>
+          </TouchableOpacity>
+        )}
+
         <View style={{ height: 20 }} />
       </RefreshableScroll>
     </SafeAreaView>
@@ -330,6 +395,7 @@ const styles = StyleSheet.create({
     color: "#0B0F19",
     opacity: 0.55,
     marginTop: 4,
+    textAlign: "center",
   },
 
   // Appointment card
@@ -372,6 +438,38 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
 
+  // Action buttons group (complete + cancel)
+  actionButtons: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+
+  // Complete button (provider)
+  completeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#ECFDF3",
+    borderWidth: 1,
+    borderColor: "#A7F3D0",
+    borderRadius: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+  },
+  completeBtnText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#16A34A",
+  },
+
+  // Cancel link
+  cancelLink: {
+    fontSize: 13,
+    color: "#EF4444",
+    fontWeight: "600",
+  },
+
   // Badges
   badgeGreen: {
     backgroundColor: "#ECFDF3",
@@ -403,14 +501,8 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     overflow: "hidden",
   },
-  // Cancel
-  cancelLink: {
-    fontSize: 13,
-    color: "#EF4444",
-    fontWeight: "600",
-  },
 
-  // Button
+  // Book button
   primaryBtn: {
     paddingVertical: 14,
     borderRadius: 14,

@@ -34,20 +34,34 @@ const DAY_NAMES = [
   "Saturday",
 ];
 
+function toLocalDateString(d: Date): string {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 function buildMarkedDates(availableDays: string[]): Record<string, any> {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const marked: Record<string, any> = {};
-  // Mark next 90 days
   for (let i = 0; i < 90; i++) {
     const d = new Date(today);
     d.setDate(today.getDate() + i);
     const dayName = DAY_NAMES[d.getDay()];
-    const key = d.toISOString().split("T")[0];
+    const key = toLocalDateString(d);
     if (availableDays.includes(dayName)) {
       marked[key] = {
-        marked: true,
-        dotColor: "#1D4ED8",
+        customStyles: {
+          container: {
+            backgroundColor: "#DBEAFE",
+            borderRadius: 8,
+          },
+          text: {
+            color: "#1D4ED8",
+            fontWeight: "700",
+          },
+        },
       };
     }
   }
@@ -177,13 +191,19 @@ export default function BookAppointmentScreen() {
   const getInitials = (doc: Doctor) =>
     `${doc.firstName?.[0] ?? ""}${doc.lastName?.[0] ?? ""}`.toUpperCase();
 
-  // Build marked dates with selected date highlighted
   const calendarMarked = {
     ...markedDates,
     [date]: {
-      ...(markedDates[date] ?? {}),
-      selected: true,
-      selectedColor: "#1D4ED8",
+      customStyles: {
+        container: {
+          backgroundColor: "#1D4ED8",
+          borderRadius: 8,
+        },
+        text: {
+          color: "#FFFFFF",
+          fontWeight: "700",
+        },
+      },
     },
   };
 
@@ -268,13 +288,10 @@ export default function BookAppointmentScreen() {
             minDate={getTodayString()}
             onDayPress={handleDayPress}
             markedDates={calendarMarked}
-            markingType="dot"
+            markingType="custom"
             theme={{
               todayTextColor: "#1D4ED8",
-              selectedDayBackgroundColor: "#1D4ED8",
-              selectedDayTextColor: "#FFFFFF",
               arrowColor: "#1D4ED8",
-              dotColor: "#1D4ED8",
               textDayFontWeight: "500",
               textMonthFontWeight: "700",
               calendarBackground: "#FFFFFF",
