@@ -11,6 +11,16 @@ const messageSchema = new mongoose.Schema({
     ref: "User",
     required: true,
   },
+  sender_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+  },
+  sender_role: {
+    type: String,
+    enum: ["patient", "provider", "admin"],
+    required: true,
+  },
   subject: {
     type: String,
     required: true,

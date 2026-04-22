@@ -14,20 +14,43 @@ function hasProfanity(text) {
 // POST /messages
 router.post("/", async (req, res) => {
   try {
-    const { patient_id, doctor_id, subject, body, encrypted } = req.body;
+    const {
+      patient_id,
+      doctor_id,
+      sender_id,
+      sender_role,
+      subject,
+      body,
+      encrypted,
+    } = req.body;
 
-    if (!patient_id || !doctor_id || !subject || !body) {
+    if (
+      !patient_id ||
+      !doctor_id ||
+      !sender_id ||
+      !sender_role ||
+      !subject ||
+      !body
+    ) {
       return res.status(400).json({
-        message: "patient_id, doctor_id, subject, and body are required",
+        message:
+          "patient_id, doctor_id, sender_id, sender_role, subject, and body are required",
       });
     }
 
     if (
       !mongoose.Types.ObjectId.isValid(patient_id) ||
-      !mongoose.Types.ObjectId.isValid(doctor_id)
+      !mongoose.Types.ObjectId.isValid(doctor_id) ||
+      !mongoose.Types.ObjectId.isValid(sender_id)
     ) {
       return res.status(400).json({
-        message: "Invalid patient_id or doctor_id",
+        message: "Invalid patient_id, doctor_id, or sender_id",
+      });
+    }
+
+    if (!["patient", "provider", "admin"].includes(sender_role)) {
+      return res.status(400).json({
+        message: "Invalid sender_role",
       });
     }
 
@@ -46,6 +69,8 @@ router.post("/", async (req, res) => {
     const newMessage = new Message({
       patient_id,
       doctor_id,
+      sender_id,
+      sender_role,
       subject,
       body,
       encrypted: encrypted || false,
